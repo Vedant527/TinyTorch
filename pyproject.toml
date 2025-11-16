@@ -42,12 +42,15 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mlsysbook/TinyTorch"
-Repository = "https://github.com/mlsysbook/TinyTorch"
-Documentation = "https://mlsysbook.github.io/TinyTorch/"
-Issues = "https://github.com/mlsysbook/TinyTorch/issues"
+Homepage = "https://github.com/MLSysBook/TinyTorch"
+Repository = "https://github.com/MLSysBook/TinyTorch"
+Issues = "https://github.com/MLSysBook/TinyTorch/issues"
+
+[project.scripts]
+# Expose CLI as installable console command (`tito`)
+# bin/tito imports from tito.main:main
+tito = "tito.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["tinytorch*"]
-exclude = ["tests*", "modules*", "site*", "docs*", "milestones*", "assignments*", "tito*"]
+include = ["tinytorch*", "tito*"]
