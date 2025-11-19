@@ -344,12 +344,6 @@ class Tensor:
         - Preserve gradient tracking for future modules
         """
         ### BEGIN SOLUTION
-        if isinstance(other, Tensor):
-            # Tensor + Tensor: let NumPy handle broadcasting
-            return Tensor(self.data + other.data)
-        else:
-            # Tensor + scalar: NumPy broadcasts automatically
-            return Tensor(self.data + other)
         ### END SOLUTION
 
     # %% nbgrader={"grade": false, "grade_id": "subtraction-impl", "solution": true}
@@ -360,10 +354,6 @@ class Tensor:
         Common use: Centering data (x - mean), computing differences for loss functions.
         """
         ### BEGIN SOLUTION
-        if isinstance(other, Tensor):
-            return Tensor(self.data - other.data)
-        else:
-            return Tensor(self.data - other)
         ### END SOLUTION
 
     # %% nbgrader={"grade": false, "grade_id": "multiplication-impl", "solution": true}
@@ -375,10 +365,6 @@ class Tensor:
         Note: This is * operator, not @ (which will be matrix multiplication).
         """
         ### BEGIN SOLUTION
-        if isinstance(other, Tensor):
-            return Tensor(self.data * other.data)
-        else:
-            return Tensor(self.data * other)
         ### END SOLUTION
 
     # %% nbgrader={"grade": false, "grade_id": "division-impl", "solution": true}
@@ -389,10 +375,6 @@ class Tensor:
         Common use: Normalization (x / std), converting counts to probabilities.
         """
         ### BEGIN SOLUTION
-        if isinstance(other, Tensor):
-            return Tensor(self.data / other.data)
-        else:
-            return Tensor(self.data / other)
         ### END SOLUTION
 
     # nbgrader={"grade": false, "grade_id": "matmul-impl", "solution": true}
@@ -426,45 +408,6 @@ class Tensor:
         - Provide clear error messages for debugging
         """
         ### BEGIN SOLUTION
-        if not isinstance(other, Tensor):
-            raise TypeError(f"Expected Tensor for matrix multiplication, got {type(other)}")
-
-        # Handle edge cases
-        if self.shape == () or other.shape == ():
-            # Scalar multiplication
-            return Tensor(self.data * other.data)
-
-        # For matrix multiplication, we need at least 1D tensors
-        if len(self.shape) == 0 or len(other.shape) == 0:
-            return Tensor(self.data * other.data)
-
-        # Check dimension compatibility for matrix multiplication
-        if len(self.shape) >= 2 and len(other.shape) >= 2:
-            if self.shape[-1] != other.shape[-2]:
-                raise ValueError(
-                    f"Cannot perform matrix multiplication: {self.shape} @ {other.shape}. "
-                    f"Inner dimensions must match: {self.shape[-1]} ≠ {other.shape[-2]}. "
-                    f"💡 HINT: For (M,K) @ (K,N) → (M,N), the K dimensions must be equal."
-                )
-        elif len(self.shape) == 1 and len(other.shape) == 2:
-            # Vector @ Matrix
-            if self.shape[0] != other.shape[0]:
-                raise ValueError(
-                    f"Cannot multiply vector {self.shape} with matrix {other.shape}. "
-                    f"Vector length {self.shape[0]} must match matrix rows {other.shape[0]}."
-                )
-        elif len(self.shape) == 2 and len(other.shape) == 1:
-            # Matrix @ Vector
-            if self.shape[1] != other.shape[0]:
-                raise ValueError(
-                    f"Cannot multiply matrix {self.shape} with vector {other.shape}. "
-                    f"Matrix columns {self.shape[1]} must match vector length {other.shape[0]}."
-                )
-
-        # Perform optimized matrix multiplication
-        # Use np.matmul (not np.dot) for proper batched matrix multiplication with 3D+ tensors
-        result_data = np.matmul(self.data, other.data)
-        return Tensor(result_data)
         ### END SOLUTION
 
     # nbgrader={"grade": false, "grade_id": "shape-ops", "solution": true}
@@ -502,46 +445,6 @@ class Tensor:
         - Use descriptive error messages for debugging
         """
         ### BEGIN SOLUTION
-        # Handle both reshape(2, 3) and reshape((2, 3)) calling conventions
-        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
-            new_shape = tuple(shape[0])
-        else:
-            new_shape = shape
-
-        # Handle -1 for automatic dimension inference (like NumPy)
-        if -1 in new_shape:
-            if new_shape.count(-1) > 1:
-                raise ValueError(
-                    "Can only specify one unknown dimension with -1.\n"
-                    "  Issue: Reshape allows one -1 to auto-calculate that dimension.\n"
-                    "  Fix: Specify only one -1 in the new_shape tuple."
-                )
-
-            # Calculate the unknown dimension
-            known_size = 1
-            unknown_idx = new_shape.index(-1)
-            for i, dim in enumerate(new_shape):
-                if i != unknown_idx:
-                    known_size *= dim
-
-            unknown_dim = self.size // known_size
-            new_shape = list(new_shape)
-            new_shape[unknown_idx] = unknown_dim
-            new_shape = tuple(new_shape)
-
-        # Validate total elements remain the same
-        if np.prod(new_shape) != self.size:
-            raise ValueError(
-                f"Cannot reshape tensor of size {self.size} to shape {new_shape}. "
-                f"Total elements must match: {self.size} ≠ {np.prod(new_shape)}. "
-                f"💡 HINT: Make sure new_shape dimensions multiply to {self.size}"
-            )
-
-        # Reshape the data (NumPy handles the memory layout efficiently)
-        reshaped_data = np.reshape(self.data, new_shape)
-        # Preserve gradient tracking from the original tensor (important for autograd!)
-        result = Tensor(reshaped_data, requires_grad=self.requires_grad)
-        return result
         ### END SOLUTION
 
     def transpose(self, dim0=None, dim1=None):
@@ -580,40 +483,6 @@ class Tensor:
         - Handle 1D tensors gracefully (transpose is identity)
         """
         ### BEGIN SOLUTION
-        if dim0 is None and dim1 is None:
-            # Default: transpose last two dimensions
-            if len(self.shape) < 2:
-                # For 1D tensors, transpose is identity operation
-                return Tensor(self.data.copy())
-            else:
-                # Transpose last two dimensions (most common in ML)
-                axes = list(range(len(self.shape)))
-                axes[-2], axes[-1] = axes[-1], axes[-2]
-                transposed_data = np.transpose(self.data, axes)
-        else:
-            # Specific dimensions to transpose
-            if dim0 is None or dim1 is None:
-                raise ValueError(
-                    "Both dim0 and dim1 must be specified for specific dimension transpose.\n"
-                    "  Issue: transpose(dim0, dim1) requires both dimension indices.\n"
-                    "  Fix: Provide both dim0 and dim1, e.g., tensor.transpose(0, 1)."
-                )
-
-            # Validate dimensions exist
-            if dim0 >= len(self.shape) or dim1 >= len(self.shape) or dim0 < 0 or dim1 < 0:
-                raise ValueError(
-                    f"Dimension out of range for tensor with shape {self.shape}. "
-                    f"Got dim0={dim0}, dim1={dim1}, but tensor has {len(self.shape)} dimensions."
-                )
-
-            # Create axes list and swap the specified dimensions
-            axes = list(range(len(self.shape)))
-            axes[dim0], axes[dim1] = axes[dim1], axes[dim0]
-            transposed_data = np.transpose(self.data, axes)
-
-        # Preserve requires_grad for gradient tracking (Module 05 will add _grad_fn)
-        result = Tensor(transposed_data, requires_grad=self.requires_grad)
-        return result
         ### END SOLUTION
 
     # nbgrader={"grade": false, "grade_id": "reduction-ops", "solution": true}
@@ -652,8 +521,6 @@ class Tensor:
         - keepdims=True preserves dimensions for broadcasting
         """
         ### BEGIN SOLUTION
-        result = np.sum(self.data, axis=axis, keepdims=keepdims)
-        return Tensor(result)
         ### END SOLUTION
 
     # %% nbgrader={"grade": false, "grade_id": "mean-impl", "solution": true}
@@ -664,8 +531,6 @@ class Tensor:
         Common usage: Batch normalization, loss averaging, global pooling.
         """
         ### BEGIN SOLUTION
-        result = np.mean(self.data, axis=axis, keepdims=keepdims)
-        return Tensor(result)
         ### END SOLUTION
 
     # %% nbgrader={"grade": false, "grade_id": "max-impl", "solution": true}
@@ -676,8 +541,6 @@ class Tensor:
         Common usage: Max pooling, finding best predictions, activation clipping.
         """
         ### BEGIN SOLUTION
-        result = np.max(self.data, axis=axis, keepdims=keepdims)
-        return Tensor(result)
         ### END SOLUTION
 
     # nbgrader={"grade": false, "grade_id": "gradient-placeholder", "solution": true}
